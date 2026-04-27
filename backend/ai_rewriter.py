@@ -1,23 +1,27 @@
-from openai import AsyncOpenAI
+import google.generativeai as genai
+from config import settings
+import logging
 
+logger = logging.getLogger(__name__)
 
-DEFAULT_PROMPT = (
-    "You are a copywriter for a Telegram channel. "
-    "Rewrite the post in a fresh, engaging style. "
-    "Preserve all facts. Return ONLY the rewritten text."
-)
+# Инициализация Gemini
+genai.configure(api_key=settings.gemini_api_key)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
-
-async def rewrite_post(text: str, api_key: str, prompt: str | None = None) -> str:
-    client = AsyncOpenAI(api_key=api_key)
-
-    response = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": prompt or DEFAULT_PROMPT},
-            {"role": "user", "content": text},
-        ],
-        max_tokens=1000,
+async def rewrite_post(text: str) -> str:
+    if not text:
+        return ""
+    
+    # Промпт можно будет подстроить под ваш стиль позже
+    prompt = (
+        "Ты профессиональный редактор. Перепиши этот текст для Telegram-канала используя черный юмор и шутки на грани фола, "
+        "сделав его более интересным и сохранив все важные детали и эмодзи:\n\n"
+        f"{text}"
     )
-
-    return response.choices[0].message.content or ""
+    
+    try:
+        response = await model.generate_content_async(prompt)
+        return response.text
+    except Exception as e:
+        logger.error(f"Ошибка Gemini: {e}")
+        return f"Ошибка рерайта: {str(e)}"
